@@ -7,40 +7,32 @@
   <link rel="stylesheet" href="/static/soulsense.css" />
 </head>
 <body>
-  <header>
+  <canvas id="bg"></canvas>
+
+  <div id="ring-container">
+    <svg id="ring-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <!-- outer glow ring -->
+      <circle id="ring-glow" cx="200" cy="200" r="160" fill="none" stroke-width="2"/>
+      <!-- main ring -->
+      <circle id="ring-main" cx="200" cy="200" r="140" fill="none" stroke-width="3"/>
+      <!-- inner fill -->
+      <circle id="ring-fill" cx="200" cy="200" r="138" />
+      <!-- tick marks -->
+      <g id="ticks"></g>
+      <!-- centre label -->
+      <text id="ring-value" x="200" y="190" text-anchor="middle" dominant-baseline="middle">0.00</text>
+      <text id="ring-label" x="200" y="222" text-anchor="middle">MOTION</text>
+    </svg>
+  </div>
+
+  <canvas id="wave"></canvas>
+
+  <footer id="status-bar">
+    <span id="status-dot" class="dot"></span>
+    <span id="status-text">Connecting…</span>
+    <span id="rssi-text"></span>
     <span class="brand">SOULSENSE</span>
-    <span id="status-dot" class="dot disconnected"></span>
-    <span id="status-label">Disconnected</span>
-    <span id="rssi-label" class="rssi"></span>
-  </header>
-
-  <main>
-    <section class="meter-zone">
-      <div class="meter-label">MOTION</div>
-      <div class="meter-track">
-        <div id="meter-bar" class="meter-bar"></div>
-      </div>
-      <div id="meter-value" class="meter-value">0.00</div>
-    </section>
-
-    <section class="waterfall-zone">
-      <div class="waterfall-label">CSI WATERFALL</div>
-      <canvas id="waterfall" width="800" height="200"></canvas>
-    </section>
-
-    <section class="controls">
-      <label>
-        Window
-        <input id="window-size" type="range" min="2" max="60" value="15" />
-        <span id="window-size-val">15</span>
-      </label>
-      <label>
-        Smoothing
-        <input id="smoothing" type="range" min="0" max="99" value="30" />
-        <span id="smoothing-val">0.30</span>
-      </label>
-    </section>
-  </main>
+  </footer>
 
   <script src="/static/soulsense.js"></script>
 </body>

@@ -1,103 +1,182 @@
 (function () {
   "use strict";
 
-  /* ── DOM refs ── */
-  const dot        = document.getElementById("status-dot");
-  const statusLbl  = document.getElementById("status-label");
-  const rssiLbl    = document.getElementById("rssi-label");
-  const meterBar   = document.getElementById("meter-bar");
-  const meterVal   = document.getElementById("meter-value");
-  const canvas     = document.getElementById("waterfall");
-  const ctx        = canvas.getContext("2d");
-  const windowIn   = document.getElementById("window-size");
-  const windowVal  = document.getElementById("window-size-val");
-  const smoothIn   = document.getElementById("smoothing");
-  const smoothVal  = document.getElementById("smoothing-val");
+  /* ── Constants ── */
+  const YELLOW       = "#FFD600";
+  const YELLOW_DIM   = "rgba(255,214,0,0.08)";
+  const YELLOW_MID   = "rgba(255,214,0,0.25)";
+  const WAVE_HISTORY = 300;   // number of motion samples kept for waveform
 
-  /* ── Waterfall state ── */
-  const COL_W = 2;           // pixels per time-column
-  let wfCols   = 0;          // how many columns drawn so far
+  /* ── State ── */
+  let motion     = 0;   // current smoothed motion 0..1
+  let motionTarget = 0;
+  let rssi       = 0;
+  let connected  = false;
+  const waveData = new Float32Array(WAVE_HISTORY);  // ring buffer
+  let waveHead   = 0;
 
-  function resizeCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    canvas.width  = Math.floor(rect.width);
-    canvas.height = canvas.offsetHeight || 200;
-    wfCols = 0;
+  /* ── DOM ── */
+  const ringMain  = document.getElementById("ring-main");
+  const ringGlow  = document.getElementById("ring-glow");
+  const ringFill  = document.getElementById("ring-fill");
+  const ringValue = document.getElementById("ring-value");
+  const ticksG    = document.getElementById("ticks");
+  const dot       = document.getElementById("status-dot");
+  const statusTxt = document.getElementById("status-text");
+  const rssiTxt   = document.getElementById("rssi-text");
+  const bgCanvas  = document.getElementById("bg");
+  const waveCanvas= document.getElementById("wave");
+  const bgCtx     = bgCanvas.getContext("2d");
+  const waveCtx   = waveCanvas.getContext("2d");
+
+  /* ── Build tick marks on ring ── */
+  (function buildTicks() {
+    const N = 48;
+    for (let i = 0; i < N; i++) {
+      const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+      const r0 = 150, r1 = 158;
+      const x0 = 200 + Math.cos(angle) * r0;
+      const y0 = 200 + Math.sin(angle) * r0;
+      const x1 = 200 + Math.cos(angle) * r1;
+      const y1 = 200 + Math.sin(angle) * r1;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x0); line.setAttribute("y1", y0);
+      line.setAttribute("x2", x1); line.setAttribute("y2", y1);
+      line.setAttribute("class", "tick");
+      ticksG.appendChild(line);
+    }
+  })();
+
+  /* ── Resize canvases ── */
+  function resize() {
+    bgCanvas.width  = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    waveCanvas.width  = window.innerWidth;
+    waveCanvas.height = waveCanvas.offsetHeight || 120;
   }
+  window.addEventListener("resize", resize);
+  resize();
 
-  window.addEventListener("resize", resizeCanvas);
-  resizeCanvas();
+  /* ── Background particle field ── */
+  const PARTICLES = 60;
+  const particles = Array.from({ length: PARTICLES }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    vx: (Math.random() - 0.5) * 0.0003,
+    vy: (Math.random() - 0.5) * 0.0003,
+    r: Math.random() * 1.5 + 0.5,
+    a: Math.random() * 0.3 + 0.05,
+  }));
 
-  /* ── Heatmap colour map (black → blue → cyan → white) ── */
-  function ampToColor(norm) {
-    // norm: 0..1
-    if (norm < 0.33) {
-      const t = norm / 0.33;
-      const r = 0, g = Math.round(t * 80), b = Math.round(t * 200);
-      return `rgb(${r},${g},${b})`;
-    } else if (norm < 0.66) {
-      const t = (norm - 0.33) / 0.33;
-      const r = Math.round(t * 0), g = Math.round(80 + t * 175), b = 200;
-      return `rgb(${r},${g},${b})`;
-    } else {
-      const t = (norm - 0.66) / 0.34;
-      const r = Math.round(t * 255), g = 255, b = Math.round(200 + t * 55);
-      return `rgb(${r},${g},${b})`;
+  function drawBg() {
+    const W = bgCanvas.width, H = bgCanvas.height;
+    bgCtx.clearRect(0, 0, W, H);
+
+    const pulse = 0.5 + motion * 0.5;
+
+    // Radial gradient that breathes with motion
+    const cx = W / 2, cy = H / 2;
+    const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.6);
+    grad.addColorStop(0, `rgba(76,29,149,${0.12 + motion * 0.18})`);
+    grad.addColorStop(0.5, `rgba(59,7,100,${0.06 + motion * 0.1})`);
+    grad.addColorStop(1, "rgba(6,6,15,0)");
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, W, H);
+
+    // Particles
+    for (const p of particles) {
+      p.x += p.vx * (1 + motion * 3);
+      p.y += p.vy * (1 + motion * 3);
+      if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
+      if (p.y < 0) p.y = 1; if (p.y > 1) p.y = 0;
+      bgCtx.beginPath();
+      bgCtx.arc(p.x * W, p.y * H, p.r * pulse, 0, Math.PI * 2);
+      bgCtx.fillStyle = `rgba(255,214,0,${p.a * pulse})`;
+      bgCtx.fill();
     }
   }
 
-  function drawWaterfallColumn(amplitudes) {
-    const W = canvas.width;
-    const H = canvas.height;
+  /* ── Ring update ── */
+  function drawRing() {
+    // Ease motion toward target
+    motion += (motionTarget - motion) * 0.12;
 
-    // Scroll existing content left by COL_W
-    if (wfCols > 0) {
-      const img = ctx.getImageData(COL_W, 0, W - COL_W, H);
-      ctx.putImageData(img, 0, 0);
+    const scale = 1 + motion * 0.08;
+    const glowR  = 160 + motion * 20;
+    const mainR  = 140 + motion * 8;
+    const fillR  = mainR - 2;
+    const opacity = 0.4 + motion * 0.6;
+
+    ringMain.setAttribute("r", mainR);
+    ringMain.setAttribute("stroke-opacity", opacity);
+    ringGlow.setAttribute("r", glowR);
+    ringGlow.setAttribute("stroke-opacity", 0.08 + motion * 0.25);
+    ringFill.setAttribute("r", fillR);
+    ringFill.setAttribute("fill-opacity", 0.04 + motion * 0.14);
+
+    // Scale ring container slightly
+    document.getElementById("ring-svg").style.transform = `scale(${scale})`;
+
+    // Update value text
+    ringValue.textContent = motion.toFixed(2);
+    ringValue.setAttribute("fill-opacity", 0.5 + motion * 0.5);
+
+    // Highlight ticks proportional to motion
+    const activeTicks = Math.round(motion * 48);
+    const ticks = ticksG.querySelectorAll("line");
+    ticks.forEach((t, i) => {
+      t.setAttribute("opacity", i < activeTicks ? (0.6 + motion * 0.4) : 0.15);
+    });
+  }
+
+  /* ── Waveform ── */
+  function drawWave() {
+    const W = waveCanvas.width, H = waveCanvas.height;
+    waveCtx.clearRect(0, 0, W, H);
+
+    const mid = H * 0.5;
+    const amp = H * 0.42;
+
+    waveCtx.beginPath();
+    for (let i = 0; i < WAVE_HISTORY; i++) {
+      const idx = (waveHead + i) % WAVE_HISTORY;
+      const x = (i / (WAVE_HISTORY - 1)) * W;
+      const y = mid - waveData[idx] * amp;
+      i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
     }
 
-    // Draw new column on the right edge
-    const x = W - COL_W;
-    const n = amplitudes.length;
-    const maxAmp = Math.max(...amplitudes, 1);
+    const grad = waveCtx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, "rgba(255,214,0,0)");
+    grad.addColorStop(0.4, "rgba(255,214,0,0.3)");
+    grad.addColorStop(1, "rgba(255,214,0,0.9)");
+    waveCtx.strokeStyle = grad;
+    waveCtx.lineWidth = 1.5;
+    waveCtx.stroke();
 
-    for (let i = 0; i < n; i++) {
-      const y     = Math.floor((i / n) * H);
-      const yNext = Math.floor(((i + 1) / n) * H);
-      ctx.fillStyle = ampToColor(amplitudes[i] / maxAmp);
-      ctx.fillRect(x, y, COL_W, Math.max(1, yNext - y));
-    }
-
-    wfCols++;
+    // Fill under wave
+    waveCtx.lineTo(W, H); waveCtx.lineTo(0, H); waveCtx.closePath();
+    const fillGrad = waveCtx.createLinearGradient(0, 0, 0, H);
+    fillGrad.addColorStop(0, "rgba(255,214,0,0.08)");
+    fillGrad.addColorStop(1, "rgba(255,214,0,0)");
+    waveCtx.fillStyle = fillGrad;
+    waveCtx.fill();
   }
 
-  /* ── Motion meter ── */
-  function updateMeter(motion) {
-    const pct = (motion * 100).toFixed(0);
-    meterBar.style.width = pct + "%";
-    meterVal.textContent = motion.toFixed(2);
+  /* ── Status bar ── */
+  function setStatus(isLive) {
+    connected = isLive;
+    dot.className = "dot" + (isLive ? " live" : "");
+    statusTxt.textContent = isLive ? "Live" : "Disconnected";
   }
 
-  /* ── Status ── */
-  function setStatus(connected) {
-    dot.className = "dot " + (connected ? "connected" : "disconnected");
-    statusLbl.textContent = connected ? "Live" : "Disconnected";
+  /* ── Main render loop ── */
+  function frame() {
+    drawBg();
+    drawRing();
+    drawWave();
+    requestAnimationFrame(frame);
   }
-
-  /* ── Params ── */
-  let paramTimer = null;
-  function sendParams(ws) {
-    clearTimeout(paramTimer);
-    paramTimer = setTimeout(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: "params",
-          window_size: parseInt(windowIn.value, 10),
-          smoothing: parseInt(smoothIn.value, 10) / 100,
-        }));
-      }
-    }, 200);
-  }
+  requestAnimationFrame(frame);
 
   /* ── WebSocket ── */
   let ws = null;
@@ -116,11 +195,12 @@
       if (msg.type === "status") {
         setStatus(msg.connected);
       } else if (msg.type === "csi") {
-        updateMeter(msg.motion);
-        rssiLbl.textContent = `RSSI ${msg.rssi} dBm`;
-        if (msg.amplitudes && msg.amplitudes.length) {
-          drawWaterfallColumn(msg.amplitudes);
-        }
+        motionTarget = msg.motion;
+        rssi = msg.rssi;
+        rssiTxt.textContent = `${rssi} dBm`;
+        // push to wave ring buffer
+        waveData[waveHead] = msg.motion;
+        waveHead = (waveHead + 1) % WAVE_HISTORY;
       }
     };
 
@@ -132,17 +212,6 @@
 
     ws.onerror = () => ws.close();
   }
-
-  /* ── Slider bindings ── */
-  windowIn.addEventListener("input", () => {
-    windowVal.textContent = windowIn.value;
-    sendParams(ws);
-  });
-
-  smoothIn.addEventListener("input", () => {
-    smoothVal.textContent = (parseInt(smoothIn.value, 10) / 100).toFixed(2);
-    sendParams(ws);
-  });
 
   connect();
 })();
