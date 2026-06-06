@@ -11,18 +11,31 @@
 
   <div id="ring-container">
     <svg id="ring-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-      <!-- outer glow ring -->
       <circle id="ring-glow" cx="200" cy="200" r="160" fill="none" stroke-width="2"/>
-      <!-- main ring -->
       <circle id="ring-main" cx="200" cy="200" r="140" fill="none" stroke-width="3"/>
-      <!-- inner fill -->
       <circle id="ring-fill" cx="200" cy="200" r="138" />
-      <!-- tick marks -->
       <g id="ticks"></g>
-      <!-- centre label -->
       <text id="ring-value" x="200" y="190" text-anchor="middle" dominant-baseline="middle">0.00</text>
       <text id="ring-label" x="200" y="222" text-anchor="middle">MOTION</text>
     </svg>
+  </div>
+
+  <div id="metrics">
+    <div class="metric">
+      <span class="metric-label">ENERGY</span>
+      <div class="metric-track"><div id="energy-bar" class="metric-bar energy"></div></div>
+      <span id="energy-val" class="metric-val">0.00</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">SPREAD</span>
+      <div class="metric-track"><div id="spread-bar" class="metric-bar spread"></div></div>
+      <span id="spread-val" class="metric-val">0.00</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">VELOCITY</span>
+      <div class="metric-track"><div id="velocity-bar" class="metric-bar velocity"></div></div>
+      <span id="velocity-val" class="metric-val">0.00</span>
+    </div>
   </div>
 
   <canvas id="wave"></canvas>

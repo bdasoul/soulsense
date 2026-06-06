@@ -32,6 +32,35 @@ def test_first_packet_is_safe():
     assert out["motion"] == 0.0
 
 
+def test_energy_rises_with_strong_signal():
+    eng = MotionEngine(window_size=2, smoothing=0.0)
+    eng.update([1.0, 1.0])        # low energy baseline
+    out_low = eng.update([1.0, 1.0])
+    eng2 = MotionEngine(window_size=2, smoothing=0.0)
+    eng2.update([1.0, 1.0])
+    out_high = eng2.update([100.0, 100.0])   # high energy
+    assert out_high["energy"] >= out_low["energy"]
+
+
+def test_spread_is_between_0_and_1():
+    eng = MotionEngine(window_size=3, smoothing=0.0)
+    for _ in range(3):
+        out = eng.update([1.0, 5.0, 2.0, 8.0, 3.0])
+    assert 0.0 <= out["spread"] <= 1.0
+
+
+def test_velocity_detects_sudden_change():
+    eng = MotionEngine(window_size=2, smoothing=0.0)
+    eng.update([5.0, 5.0])
+    eng.update([5.0, 5.0])   # stable — velocity near 0
+    out_stable = eng.update([5.0, 5.0])
+    eng2 = MotionEngine(window_size=2, smoothing=0.0)
+    eng2.update([0.0, 0.0])
+    eng2.update([10.0, 10.0])
+    out_burst = eng2.update([0.0, 0.0])   # sudden drop — high velocity
+    assert out_burst["velocity"] >= out_stable["velocity"]
+
+
 def test_set_params_affects_behavior():
     # Fill a window=2 engine with movement so motion > 0
     eng = MotionEngine(window_size=2, smoothing=0.0)

@@ -91,6 +91,9 @@ def run_pipeline(source, engine: MotionEngine) -> Iterator[Dict]:
             "t": rec["timestamp"],
             "motion": m["motion"],
             "motion_raw": m["motion_raw"],
+            "energy": m["energy"],
+            "spread": m["spread"],
+            "velocity": m["velocity"],
             "rssi": rec["rssi"],
             "amplitudes": rec["amplitudes"],
         }
