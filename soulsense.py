@@ -24,7 +24,12 @@ DEFAULT_WEB_PORT = 8765
 
 
 def find_esp32_port() -> str:
-    candidates = glob.glob("/dev/tty.usbserial-*") + glob.glob("/dev/tty.SLAB_*") + glob.glob("/dev/tty.usbmodem*")
+    candidates = (
+        glob.glob("/dev/tty.usbserial-*")
+        + glob.glob("/dev/tty.wchusbserial*")
+        + glob.glob("/dev/tty.SLAB_*")
+        + glob.glob("/dev/tty.usbmodem*")
+    )
     if not candidates:
         print("[soulsense] No ESP32 serial port found. Connect the board or use --port.")
         sys.exit(1)
