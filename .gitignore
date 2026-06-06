@@ -4,3 +4,5 @@ __pycache__/
 .pytest_cache/
 captures/*.csv
 !captures/example_csi.csv
+.DS_Store
+.env
