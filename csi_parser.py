@@ -33,11 +33,11 @@ def parse_csi_line(line: str) -> Optional[Dict]:
         raw = [int(v) for v in raw_str]
     except ValueError:
         return None
-    if len(raw) < 2:
+    if len(raw) < 2 or len(raw) % 2 != 0:
         return None
 
     amplitudes = []
-    for k in range(0, len(raw) - 1, 2):
+    for k in range(0, len(raw), 2):
         imag = raw[k]
         real = raw[k + 1]
         amplitudes.append(math.sqrt(imag * imag + real * real))

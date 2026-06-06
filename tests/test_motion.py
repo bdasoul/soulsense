@@ -32,8 +32,15 @@ def test_first_packet_is_safe():
     assert out["motion"] == 0.0
 
 
-def test_set_params_updates_window():
-    eng = MotionEngine(window_size=5, smoothing=0.3)
-    eng.set_params(window_size=10, smoothing=0.5)
+def test_set_params_affects_behavior():
+    # Fill a window=2 engine with movement so motion > 0
+    eng = MotionEngine(window_size=2, smoothing=0.0)
+    eng.update([0.0, 0.0])
+    eng.update([10.0, 10.0])
+    # Resize to window=10; the 2 existing packets are preserved so motion stays > 0
+    eng.set_params(window_size=10, smoothing=0.0)
     assert eng.window_size == 10
-    assert eng.smoothing == 0.5
+    assert eng.smoothing == 0.0
+    # Next packet: window now has [10,10] plus new [0,0] — still detects motion
+    out = eng.update([0.0, 0.0])
+    assert out["motion_raw"] > 0.0
