@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOULSENSE</title>
+  <link rel="stylesheet" href="/static/soulsense.css" />
+</head>
+<body>
+  <header>
+    <span class="brand">SOULSENSE</span>
+    <span id="status-dot" class="dot disconnected"></span>
+    <span id="status-label">Disconnected</span>
+    <span id="rssi-label" class="rssi"></span>
+  </header>
+
+  <main>
+    <section class="meter-zone">
+      <div class="meter-label">MOTION</div>
+      <div class="meter-track">
+        <div id="meter-bar" class="meter-bar"></div>
+      </div>
+      <div id="meter-value" class="meter-value">0.00</div>
+    </section>
+
+    <section class="waterfall-zone">
+      <div class="waterfall-label">CSI WATERFALL</div>
+      <canvas id="waterfall" width="800" height="200"></canvas>
+    </section>
+
+    <section class="controls">
+      <label>
+        Window
+        <input id="window-size" type="range" min="2" max="60" value="15" />
+        <span id="window-size-val">15</span>
+      </label>
+      <label>
+        Smoothing
+        <input id="smoothing" type="range" min="0" max="99" value="30" />
+        <span id="smoothing-val">0.30</span>
+      </label>
+    </section>
+  </main>
+
+  <script src="/static/soulsense.js"></script>
+</body>
+</html>
