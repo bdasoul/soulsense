@@ -1,7 +1,9 @@
+from __future__ import annotations
 import time
-from typing import Iterator, Dict
+from typing import TYPE_CHECKING, Iterator, Dict
 from csi_parser import parse_csi_line
-from motion import MotionEngine
+if TYPE_CHECKING:
+    from motion import MotionEngine
 
 
 class FileSource:
@@ -73,6 +75,8 @@ class SerialSource:
                 except Exception:
                     pass
                 time.sleep(2)
+        # Clean stop — notify caller the source is no longer connected.
+        self.on_status(False)
 
 
 def run_pipeline(source, engine: MotionEngine) -> Iterator[Dict]:
